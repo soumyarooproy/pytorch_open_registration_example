@@ -43,7 +43,7 @@ at::Tensor custom_add_Tensor(const at::Tensor & self, const at::Tensor & other, 
 // A dummy allocator for our custom device, that secretly uses the CPU
 struct DummyCustomAllocator final : at::Allocator {
   DummyCustomAllocator() = default;
-  at::DataPtr allocate(size_t nbytes) const override {
+  at::DataPtr allocate(size_t nbytes) override {
     std::cout << "Custom allocator's allocate() called!" << std::endl;
     void* data = c10::alloc_cpu(nbytes);
     return {data, data, &ReportAndDelete, at::Device(at::DeviceType::PrivateUse1, 0)};
@@ -60,6 +60,11 @@ struct DummyCustomAllocator final : at::Allocator {
   at::DeleterFnPtr raw_deleter() const override {
     return &ReportAndDelete;
   }
+
+  void copy_data(void* dest, const void* src, std::size_t count) const override {
+    default_copy_data(dest, src, count);
+  }
+
 };
 
 // Register our dummy allocator

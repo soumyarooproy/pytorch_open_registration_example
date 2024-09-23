@@ -1,3 +1,6 @@
+import types
+from typing import Union
+
 import torch
 from utils.custom_device_mode import foo_module, enable_foo_device
 
@@ -60,6 +63,39 @@ from utils.custom_device_mode import foo_module, enable_foo_device
 # Custom allocator's delete() called!
 # Custom allocator's delete() called!
 
+def generate_faked_module():
+    def device_count() -> int:
+        return 1
+
+    def get_rng_state(device: Union[int, str, torch.device] = "foo") -> torch.Tensor:
+        # create a tensor using our custom device object.
+        return torch.empty(4, 4, device="foo")
+
+    def set_rng_state(
+        new_state: torch.Tensor, device: Union[int, str, torch.device] = "foo"
+    ) -> None:
+        pass
+
+    def is_available():
+        return True
+
+    def current_device():
+        return 0
+
+    # create a new module to fake torch.foo dynamicaly
+    foo = types.ModuleType("foo")
+
+    foo.device_count = device_count
+    foo.get_rng_state = get_rng_state
+    foo.set_rng_state = set_rng_state
+    foo.is_available = is_available
+    foo.current_device = current_device
+    foo._lazy_init = lambda: None
+    foo.is_initialized = lambda: True
+
+    return foo
+
+
 def test(x, y):
     print()
     print("Test START")
@@ -88,7 +124,9 @@ def test(x, y):
 # Option 1: Use torch.register_privateuse1_backend("foo"), which will allow
 # "foo" as a device string to work seamlessly with pytorch's API's.
 # You may need a more recent nightly of PyTorch for this.
-torch.register_privateuse1_backend('foo')
+torch.utils.rename_privateuse1_backend("foo")
+torch.utils.generate_methods_for_privateuse1_backend(for_storage=True)
+torch._register_device_module("foo", generate_faked_module())
 
 # Show that in general, passing in a custom device string will fail.
 try:
